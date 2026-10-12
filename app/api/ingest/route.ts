@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import {sql} from "@/lib/db";
 
-async function fetchBills(page:number, formattedDate: string) {
+async function fetchBills(page:number, formattedDate: string, state: string) {
     const apiKey = process.env.OPEN_STATES_API_KEY;
     if (!apiKey) throw new Error("OPEN_STATES_API_KEY is not defined.");
-    const params = new URLSearchParams({jurisdiction: "Virginia", updated_since: formattedDate, page: String(page),});
+    const params = new URLSearchParams({jurisdiction: state, updated_since: formattedDate, page: String(page),});
     const res = await fetch(`https://v3.openstates.org/bills?${params}`, {
         headers: {"x-api-key": apiKey},
     });
@@ -41,17 +41,22 @@ function toRow(bill:APIBILL){
 const max_pages = 2; // temp value, full 30 day run requires 11 pages
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function GET() {
+export async function GET(request: Request) {
+    const state = new URL(request.url).searchParams.get('state');
+    const [stateRow] = await sql`SELECT abbr, name from states where abbr = ${state}`;
+    if (!stateRow) {
+        return NextResponse.json({error: 'Invalid state'}, {status: 400});
+    }
     const date = new Date();
     date.setDate(date.getDate() - 30);
     const formattedDate = date.toISOString().split('T')[0]; 
     const allBills = []
-    const firstPage = await fetchBills(1, formattedDate);
+    const firstPage = await fetchBills(1, formattedDate, stateRow.name);
     allBills.push(...firstPage.results);
     const lastPage = Math.min(firstPage.pagination.max_page, max_pages);
     for (let page = 2; page <= lastPage; page++) {
         await sleep(6500);
-        const data = await fetchBills(page, formattedDate);
+        const data = await fetchBills(page, formattedDate, stateRow.name);
         allBills.push(...data.results);
     }
     const rows = allBills.map(toRow).filter((r): r is typeof r & {state: string} => r.state !== null);
