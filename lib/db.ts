@@ -5,5 +5,8 @@ if (!databaseURL) {
 }
 
 export const sql = postgres(databaseURL, {
-    ssl: 'require'
+    ssl: 'require',
+    prepare: false, 
+    max: 5,         
+    idle_timeout: 20,
 })

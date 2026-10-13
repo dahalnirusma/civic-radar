@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { getJustification } from "@/lib/justification";
 
+export const maxDuration = 60;
+
 export async function GET(request: Request) {
   const p = new URL(request.url).searchParams;
   const billId = Number(p.get("bill"));

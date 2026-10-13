@@ -6,6 +6,8 @@ import { RECENT_DAYS, SUPPORTED_STATES } from "@/lib/config";
 import { getOrCreateKeyword, InvalidKeywordError } from "@/lib/keywords";
 import { isValidKeywordShape } from "@/lib/validate";
 
+export const maxDuration = 60;
+
 const Min_simarity = 0.2;
 const Top_N = 25;
 const Max_keywords = 5;
