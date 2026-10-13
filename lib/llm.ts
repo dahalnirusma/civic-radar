@@ -34,5 +34,6 @@ if (!res.ok) {
 
 const data = await res.json();
 const block = data.content.find((c: {type:string}) => c.type === 'text');
+if (data.stop_reason === "max_tokens") throw new Error("Claude reply was cut off (max_tokens)");
 return block ? block.text : '';
 }

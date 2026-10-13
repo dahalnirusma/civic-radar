@@ -18,6 +18,8 @@ Rules:
 - Do not repeat the bill's title word for word.
 - Ignore trivial edits such as single words, punctuation, renumbering, or reformatting, unless they change what the law means. Summarize only the changes that matter to a resident, and use one sentence if there is only one such change.
 - Lead with the most significant change, and keep to about 40 words.
+- Never mention the text itself, being cut off, or missing information in the summary.
+- Begin the summary with the word "Would".
 
 Example.
 Text: "...a fine of {+not more than $5+} [-up to $10-] per overdue item at a public library..."
@@ -39,11 +41,11 @@ export async function getBillSummary(billId: number): Promise<string | null> {
     const reply = await askClaude({
       system: SUMMARY_SYSTEM,
       prompt: `Bill: ${bill.identifier}, ${bill.title}\n\nText:\n${text}`,
-      maxTokens: 1000,
+      maxTokens: 2000,
     });
 
     const summary = reply.trim();
-    if (!summary || summary.length > MAX_SUMMARY_CHARS) return null;
+    if (!summary || summary.length > MAX_SUMMARY_CHARS || !/[.!?]["”)]?$/.test(summary)) return null;
 
     await sql`update bills set summary = ${summary} where id = ${billId}`;
     return summary;

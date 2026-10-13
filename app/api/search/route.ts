@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { getOrCreateKeyword } from "@/lib/keywords";
 import { filterRelevant } from "@/lib/relevance";
+import { getBillSummary } from "@/lib/summary";
+import { RECENT_DAYS } from "@/lib/config";
 
 const Min_simarity = 0.2;
-const Top_N = 10;
-const Recent_Days = 60; 
+const Top_N = 25;
 const Max_keywords = 5;
 
 export async function GET(request: Request) {
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
     const keywordId = await getOrCreateKeyword(keyword);
 
     const candidates = await sql`
-      select b.id, b.identifier, b.title, b.latest_action_date,
+      select b.id, b.identifier, b.title, b.latest_action_date, b.summary, b.status, b.openstates_url,
              (1 - (b.embedding <=> k.embedding))::float as similarity,
              r.llm_relevant
       from bills b
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
       left join results r on r.bill_id = b.id and r.keyword_id = k.id
       where b.embedding is not null
         and b.state = ${county.state_abbr}
-        and b.latest_action_date >= current_date - ${Recent_Days}::int
+        and b.latest_action_date >= current_date - ${RECENT_DAYS}::int
         and (1 - (b.embedding <=> k.embedding)) >= ${Min_simarity}
       order by b.embedding <=> k.embedding
       limit ${Top_N}
@@ -49,7 +50,6 @@ export async function GET(request: Request) {
     const uncheckedCandidates = candidates.filter(c => c.llm_relevant === null);
     const keptIds = new Set<number>();
     let checkedFailed = false;
-
     if (uncheckedCandidates.length > 0) {
       const relevanceResults = await filterRelevant(
         keyword,
@@ -77,13 +77,20 @@ export async function GET(request: Request) {
       }
     }
 
-    const bills = candidates
-      .filter(c => c.llm_relevant === true || keptIds.has(c.id))
-      .map(c => ({
-        identifier: c.identifier,
-        title: c.title,
-        similarity: c.similarity,
-      }));
+    const shown = candidates.filter(c => c.llm_relevant === true || keptIds.has(c.id));
+
+    const summaries = await Promise.all(
+      shown.map(c => c.summary ?? getBillSummary(c.id))
+    );
+
+    const bills = shown.map((c, i) => ({
+      identifier: c.identifier,
+      title: c.title,
+      similarity: c.similarity,
+      summary: summaries[i],
+      status: c.status,
+      openstates_url: c.openstates_url,
+    }));
 
     output.push({
       keyword,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {sql} from "@/lib/db";
+import { RECENT_DAYS } from "@/lib/config"; 
 
 async function fetchBills(page:number, formattedDate: string, state: string) {
     const apiKey = process.env.OPEN_STATES_API_KEY;
@@ -57,7 +58,7 @@ function toRow(bill:APIBILL){
         source_updated_at: bill.updated_at,
     };
 }
-const max_pages = 2; // temp value, full 30 day run requires 11 pages
+const max_pages = 60; // temp value, full 30 day run requires 11 pages
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function GET(request: Request) {
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
         return NextResponse.json({error: 'Invalid state'}, {status: 400});
     }
     const date = new Date();
-    date.setDate(date.getDate() - 30);
+    date.setDate(date.getDate() - RECENT_DAYS);
     const formattedDate = date.toISOString().split('T')[0]; 
     const allBills = []
     const firstPage = await fetchBills(1, formattedDate, stateRow.name);

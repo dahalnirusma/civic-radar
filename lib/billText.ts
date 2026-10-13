@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 
-const MAX_CHARS = 12000; 
+const MAX_CHARS = 4000; 
 
 export async function fetchBillText(url: string): Promise<string | null> {
     let html: string;
