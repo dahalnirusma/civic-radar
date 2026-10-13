@@ -84,6 +84,7 @@ export async function GET(request: Request) {
     );
 
     const bills = shown.map((c, i) => ({
+      id: c.id,
       identifier: c.identifier,
       title: c.title,
       similarity: c.similarity,
@@ -94,6 +95,7 @@ export async function GET(request: Request) {
 
     output.push({
       keyword,
+      keywordId,
       bills,
       verified: !checkedFailed,
       unverified: checkedFailed
