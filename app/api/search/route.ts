@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { getOrCreateKeyword } from "@/lib/keywords";
 import { filterRelevant } from "@/lib/relevance";
 import { getBillSummary } from "@/lib/summary";
-import { RECENT_DAYS } from "@/lib/config";
+import { RECENT_DAYS, SUPPORTED_STATES } from "@/lib/config";
+import { getOrCreateKeyword, InvalidKeywordError } from "@/lib/keywords";
+import { isValidKeywordShape } from "@/lib/validate";
 
 const Min_simarity = 0.2;
 const Top_N = 25;
@@ -26,11 +27,28 @@ export async function GET(request: Request) {
   if (!county) {
     return NextResponse.json({ error: "County not found" }, { status: 404 });
   }
-
+      // Only some states are supported so far
+  if (!SUPPORTED_STATES.includes(county.state_abbr)) {
+    return NextResponse.json({ county: county.state_abbr, stateLoaded: false, results: [] });
+  }
   const output = [];
 
   for (const keyword of keywords) {
-    const keywordId = await getOrCreateKeyword(keyword);
+    if (!isValidKeywordShape(keyword)) {
+        output.push({ keyword, error: "Not a recognizable topic", bills: [], verified: true, unverified: [] });
+        continue;
+      }
+  
+      let keywordId: number;
+      try {
+        keywordId = await getOrCreateKeyword(keyword);
+      } catch (err) {
+        if (err instanceof InvalidKeywordError) {
+          output.push({ keyword, error: "Not a recognizable topic", bills: [], verified: true, unverified: [] });
+          continue;
+        }
+        throw err;   
+      }
 
     const candidates = await sql`
       select b.id, b.identifier, b.title, b.latest_action_date, b.summary, b.status, b.openstates_url,
